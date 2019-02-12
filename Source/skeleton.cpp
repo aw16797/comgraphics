@@ -4,6 +4,7 @@
 #include "SDLauxiliary.h"
 #include "TestModelH.h"
 #include <stdint.h>
+#include <math.h>
 
 using namespace std;
 using glm::vec3;
@@ -12,9 +13,9 @@ using glm::vec4;
 using glm::mat4;
 
 
-#define SCREEN_WIDTH 555
-#define SCREEN_HEIGHT 555
-#define FULLSCREEN_MODE false
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 128
+#define FULLSCREEN_MODE true
 
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
@@ -24,12 +25,15 @@ struct Intersection{
   int triangleIndex;
 };
 
-void Update();
-void Draw(screen* screen);
+
+bool Update(vec4& cameraPos, float& yaw);
+void Draw(screen* screen, vec4 cameraPos, float yaw);
 bool ClosestIntersection( vec4 start,
                           vec4 dir,
                           const vector<Triangle>& triangles,
                           Intersection& closestIntersection );
+float getFocalLength(vec4 camera);
+
 
 
 
@@ -38,10 +42,14 @@ int main( int argc, char* argv[] )
 
   screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
 
-  while( NoQuitMessageSDL() )
+  vec4 cameraPos(0, 0, -1110/SCREEN_WIDTH, 1);
+
+  float yaw = 0;
+
+  while( Update(cameraPos, yaw) ) //NoQuitMessageSDL() )
     {
-      Update();
-      Draw(screen);
+      // Update();
+      Draw(screen, cameraPos, yaw);
       SDL_Renderframe(screen);
     }
 
@@ -82,6 +90,12 @@ int main( int argc, char* argv[] )
 
   KillSDL(screen);
   return 0;
+}
+
+float getFocalLength(vec4 camera){
+  // float toReturn = camera.z;
+  // toReturn = toReturn * (-SCREEN_WIDTH/4) ;
+  return 226.274;
 }
 
 
@@ -163,7 +177,7 @@ bool ClosestIntersection( vec4 start,
 }
 
 /*Place your drawing here*/
-void Draw(screen* screen)
+void Draw(screen* screen, vec4 cameraPos, float yaw)
 {
   /* Clear buffer */
   memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
@@ -181,10 +195,16 @@ void Draw(screen* screen)
   vector<Triangle> triangles;
   LoadTestModel( triangles );
   Intersection closest;
-  float focalLength = 138.75; // NB: measured in units of pixels
-  vec4 cameraPos(0, 0, -277.5/555, 1); // is this in pixel units??
+  float focalLength = getFocalLength(cameraPos); // NB: measured in units of pixels
+  // vec4 cameraPos(0, 0, -277.5/555, 1); // is this in pixel units??
 
-// v/f = y/z, where f = focal length in pixels, z = distance for cameraPos, v = half of SCREEN_WIDTH, and y = half of model height
+  //printing to see if the camera moving with keys works...
+  // cout << "In draw, (x: " << cameraPos.x << ", y: " << cameraPos.y << ", z: " << cameraPos.z << ")" << endl;
+  //end of moving camera testing
+
+
+
+  // v/f = y/z, where f = focal length in pixels, z = distance for cameraPos, v = half of SCREEN_WIDTH, and y = half of model height
   //this is how we get focal length and z values for cameraPos
   for(int i = 0; i < SCREEN_WIDTH; i ++){ // usually SCREEN_WIDTH
     for(int j = 0; j < SCREEN_HEIGHT; j++){ // usually SCREEN_HEIGHT
@@ -211,7 +231,7 @@ void Draw(screen* screen)
 }
 
 /*Place updates of parameters here*/
-void Update()
+bool Update(vec4& cameraPos, float& yaw)
 {
   static int t = SDL_GetTicks();
   /* Compute frame time */
@@ -221,4 +241,57 @@ void Update()
   /*Good idea to remove this*/
   std::cout << "Render time: " << dt << " ms." << std::endl;
   /* Update variables*/
-}
+  SDL_Event e;
+  bool lastWasRight = true;
+
+  while(SDL_PollEvent(&e))
+    {
+      if (e.type == SDL_QUIT)
+        {
+          return false;
+        }
+      else
+        if (e.type == SDL_KEYDOWN)
+          {
+            int key_code = e.key.keysym.sym;
+            switch(key_code)
+            {
+              case SDLK_UP:
+                /* Move camera forward */
+                cameraPos.z += .1;
+                break;
+              case SDLK_DOWN:
+              /* Move camera backwards */
+                cameraPos.z -= .1;
+                break;
+              case SDLK_LEFT:
+              /* Move camera left */
+                // cameraPos.x -= .1; //first task
+                if(lastWasRight){
+                  yaw = yaw*-1;
+                  lastWasRight = false;
+                }
+                yaw += .01;
+                cameraPos.x = ( cameraPos.x*cos(yaw) - cameraPos.z*sin(yaw) );
+                cameraPos.z = ( cameraPos.z*cos(yaw) + cameraPos.z*sin(yaw) );
+                break;
+              case SDLK_RIGHT:
+              /* Move camera right */
+                // cameraPos.x = cameraPos.x + .1; // first task
+                yaw -= .01;
+                cameraPos.x = ( cameraPos.x*cos(yaw) - cameraPos.z*sin(yaw) );
+                cameraPos.z = ( cameraPos.z*cos(yaw) + cameraPos.z*sin(yaw) );
+                lastWasRight = true;
+                break;
+              case SDLK_ESCAPE:
+              /* Move camera quit */
+                return false;
+              }
+          }
+    }
+    //printing to see if the camera moving with keys works...
+    cout << "In update, (x: " << cameraPos.x << ", y: " << cameraPos.y << ", z: " << cameraPos.z << ")" << endl;
+    //end of moving camera testing
+
+    return true;
+  }
