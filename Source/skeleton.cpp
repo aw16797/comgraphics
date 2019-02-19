@@ -14,8 +14,8 @@ using glm::mat4;
 using std::max;
 
 
-#define SCREEN_WIDTH 555
-#define SCREEN_HEIGHT 555
+#define SCREEN_WIDTH 200
+#define SCREEN_HEIGHT 200
 #define FULLSCREEN_MODE true
 
 /* ----------------------------------------------------------------------------*/
@@ -43,52 +43,16 @@ int main( int argc, char* argv[] ){
 
   screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
 
+  //initializing variables that will be updated/used throughout
   vec4 cameraPos(0, 0, -2.75, 1);
-
   float yaw = 0;
-
-  //this will be passe dinto update and then into DirectLight
   vec4 lightPos( 0, -0.5, -0.7, 1.0 );
 
-  while( Update(cameraPos, yaw, lightPos) ) //NoQuitMessageSDL() )
+  while( Update(cameraPos, yaw, lightPos) ) //could also use: NoQuitMessageSDL() and call Update() in the loop
     {
-      // Update();
       Draw(screen, cameraPos, yaw, lightPos);
       SDL_Renderframe(screen);
     }
-
-  //   // Start of where I was testing ClosestIntersection
-  //
-  // vector<Triangle> triangles;
-  // LoadTestModel( triangles );
-  // vec4 start(278/555, 278/555, 1, 1);
-  // vec4 dir(0, 1, 1, 1);
-  //
-  // // vec4 interPos(0, 0, 0, 0);
-  // // float interDist = 0;
-  // // int interTIndex = 0;
-  // // closest.position = interPos;
-  // // closest.distance = interDist;
-  // // closest.triangleIndex = interTIndex;
-  //
-  // Intersection closest;
-  //
-  // bool result = ClosestIntersection(start, dir, triangles, closest);
-  // if(result){
-  //   cout << "we got one!" << ", "
-  //        << closest.position.x << ", "
-  //        << closest.position.y << ", "
-  //        << closest.position.z << ", "
-  //        << closest.position.w << ", "
-  //        << closest.distance << ", "
-  //        << closest.triangleIndex;
-  // }
-  // else{
-  //   cout << "no closest found :(" << endl;
-  // }
-  //
-  //   // End of where I was testing ClosestIntersection
-
 
   SDL_SaveImage( screen, "screenshot.bmp" );
 
@@ -100,6 +64,11 @@ float getFocalLength(vec4 camera){
   // float toReturn = camera.z;
   // toReturn = toReturn * (-SCREEN_WIDTH/4) ;
   return 226.274;
+
+  // go back to doing this? -19 Feb
+  // v/f = y/z, where f = focal length in pixels, z = distance for cameraPos, v = half of SCREEN_WIDTH, and y = half of model height
+  //this is how we get focal length and z values for cameraPos
+
 }
 
 bool ClosestIntersection( vec4 start, vec4 dir, const vector<Triangle>& triangles, Intersection& closestIntersection ){
@@ -117,70 +86,40 @@ bool ClosestIntersection( vec4 start, vec4 dir, const vector<Triangle>& triangle
     vec4 v1 = triangles[i].v1;
     vec4 v2 = triangles[i].v2;
 
-    // for debugging
-    // cout << "("
-    //      << i << ", "
-    //      << v0.x << ", "
-    //      << v0.y << ", "
-    //      << v0.z << ", "
-    //      << v0.w << ") " << endl;
-
-
     vec3 e1 = vec3(v1.x-v0.x, v1.y-v0.y, v1.z-v0.z);
     vec3 e2 = vec3(v2.x-v0.x, v2.y-v0.y, v2.z-v0.z);
     vec3 b = vec3(start.x-v0.x, start.y-v0.y, start.z-v0.z);
 
     vec3 threeDir(dir.x, dir.y, dir.z);
-    mat3 A(-threeDir, e1, e2); //how do we get d?...its just d
+    mat3 A(-threeDir, e1, e2);
     vec3 x = glm::inverse(A)*b;
 
-    vec4 pos( (v0.x + (x.y*e1.x) + (x.z*e2.x)), (v0.y + (x.y*e1.y) + (x.z*e2.y)), (v0.z + (x.y*e1.z) + (x.z*e2.z)), 1);
+    vec4 pos( (v0.x + (x.y*e1.x) + (x.z*e2.x)),
+              (v0.y + (x.y*e1.y) + (x.z*e2.y)),
+              (v0.z + (x.y*e1.z) + (x.z*e2.z)),
+              1);
 
-    // cout << "(I: "
-    //      << i << ","
-    //      << pos.x << ", "
-    //      << pos.y << ", "
-    //      << pos.z << ", "
-    //      << pos.w << ")" << endl;
-
-
-
-    if(x.x >= 0){
-      // cout << "(I: "
-      //      << i << ","
-      //      << x.x << ", "
-      //      << x.y << ", "
-      //      << x.z << ")" << endl;
-      if((x.y > 0) && (x.z > 0) && ((x.y + x.z)<1) ){
-        // cout << "Intersection!";
+    if( (x.x >= 0) && (x.y > 0) && (x.z > 0) && ((x.y + x.z)<1) ){
         toReturn = true;
-        float tempDist = x.x; //compute this
+        float tempDist = x.x;
 
         if(tempDist < closestSoFar){
-          // vec4 pos( (v0.x + (x.x*e1.x) + (x.y*e2.x)), (v0.y + (x.x*e1.y) + (x.y*e2.y)), (v0.z + (x.x*e1.z) + (x.y*e2.z)), 1);
-          closestIntersection.position = pos; //is this related to x?
+          closestIntersection.position = pos;
           closestIntersection.distance = tempDist;
           closestIntersection.triangleIndex = i;
           closestSoFar = tempDist;
         }
-      } //end of if checking u and v
 
-    }//end of if statement checking if t > 0
+    }//end of if statement checking u, v, t
 
   }//end of loop for all triangles
 
-
-
   return toReturn;
-
 }
 
 vec3 DirectLight(Intersection interS, vec4 lightPos){
   vec3 toReturn(0, 0, 0);
-
-  vec3 lightColor = 14.f * vec3( 1, 1, 1 ); //original from directions
-  // vec3 lightColor = 14.f * vec3( .01, .01, .01); //looks better with this, but idk why (there's too much power (pixels are getting too much light) so all the pixels are white)
-
+  vec3 lightColor = 14.f * vec3( 1, 1, 1 );
   vector<Triangle> triangles;
   LoadTestModel( triangles );
 
@@ -193,6 +132,7 @@ vec3 DirectLight(Intersection interS, vec4 lightPos){
   float radius = sqrt( pow(lightPos.x - interS.position.x ,2) + pow(lightPos.y - interS.position.y, 2) + pow(lightPos.z - interS.position.z, 2) + pow(lightPos.w - interS.position.w, 2) ); //diong it with 1 for w now instead of subtracting them
   // float radius = sqrt( pow(lightPos.x - interS.position.x ,2) + pow(lightPos.y - interS.position.y, 2) + pow(lightPos.z - interS.position.z, 2) + pow(lightPos.w - interS.position.w, 2) );
   float dotProduct = (rCarrot.x*nCarrot.x + rCarrot.y*nCarrot.y + rCarrot.z*nCarrot.z + rCarrot.w*nCarrot.w );
+
   if( dotProduct > 0){
     float multiplyBy = ( dotProduct/ (4*pow(radius, 2)*M_PI) );
     toReturn.x = lightColor.x*multiplyBy;
@@ -214,38 +154,16 @@ vec3 DirectLight(Intersection interS, vec4 lightPos){
   }
 
   return toReturn;
-
 }
 
 /*Place your drawing here*/
 void Draw(screen* screen, vec4 cameraPos, float yaw, vec4 lightPos){
   /* Clear buffer */
   memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
-
-  // // this is the stock code to draw stuff
-  // vec3 colour(1.0,0.0,0.0);
-  // for(int i=0; i<1000; i++)
-  //   {
-  //     uint32_t x = rand() % screen->width;
-  //     uint32_t y = rand() % screen->height;
-  //     PutPixelSDL(screen, x, y, colour);
-  //   }
-
-  // this is my implemented draw FUNCTION
   vector<Triangle> triangles;
   LoadTestModel( triangles );
   Intersection closest;
   float focalLength = getFocalLength(cameraPos); // NB: measured in units of pixels
-  // vec4 cameraPos(0, 0, -277.5/555, 1); // is this in pixel units??
-
-  //printing to see if the camera moving with keys works...
-  // cout << "In draw, (x: " << cameraPos.x << ", y: " << cameraPos.y << ", z: " << cameraPos.z << ")" << endl;
-  //end of moving camera testing
-
-
-
-  // v/f = y/z, where f = focal length in pixels, z = distance for cameraPos, v = half of SCREEN_WIDTH, and y = half of model height
-  //this is how we get focal length and z values for cameraPos
 
   //start of getting helper variables for rotated riection 18 Feb
   // float h = ( sqrt( pow(cameraPos.x, 2) + pow(cameraPos.z, 2) )*cos(yaw) );
@@ -260,13 +178,8 @@ void Draw(screen* screen, vec4 cameraPos, float yaw, vec4 lightPos){
   //      << ")" << endl;
   //end of helpers from 18 Feb rotated dir
 
-  for(int i = 0; i < SCREEN_WIDTH; i ++){ // usually SCREEN_WIDTH
-    for(int j = 0; j < SCREEN_HEIGHT; j++){ // usually SCREEN_HEIGHT
-
-      // cout << "In draw, (dirX: "
-      //      << dirX << ","
-      //      << "dirZ: " << dirZ << ", "
-      //      << ")" << endl;
+  for(int i = 0; i < SCREEN_WIDTH; i ++){
+    for(int j = 0; j < SCREEN_HEIGHT; j++){
 
       //for the regular working picture
       vec4 dir(i - (SCREEN_WIDTH/2), j - (SCREEN_HEIGHT/2), focalLength, 1); //this was how we did dir before starting the camera rotation on 18 Feb
@@ -275,32 +188,28 @@ void Draw(screen* screen, vec4 cameraPos, float yaw, vec4 lightPos){
       // vec4 dir( dirX + i - (SCREEN_WIDTH/2), j - (SCREEN_HEIGHT/2), dirZ, 1);
 
       if( ClosestIntersection(cameraPos, dir, triangles, closest) ){
-        //for regular colored no lighitng
+
+        // //for regular colored no lighitng
         // PutPixelSDL(screen, i, j, triangles[closest.triangleIndex].color ); //this is how we did it pre-illumination
-
-        //for fancy black and white shading
+        // //for fancy black and white shading
         // PutPixelSDL(screen, i, j, DirectLight(closest, lightPos) ); // this is how we're diong it with B&W illumination
-
-        //for fancy in color shading (now with shadows too!)
+        // //for fancy in color shading (now with shadows too!)
         // PutPixelSDL(screen, i, j, triangles[closest.triangleIndex].color * DirectLight(closest, lightPos) ); // this is how we're diong it with B&W illumination
 
         //final illumination: direct light, shadows, and indirectLight approxomation
         vec3 indirectLight = 0.5f*vec3( 1, 1, 1 );
         PutPixelSDL(screen, i, j, triangles[closest.triangleIndex].color * (DirectLight(closest, lightPos) + indirectLight) ); // this is how we're diong it with B&W illumination
 
-
-
-        // cout << "We painted a pixel?" << endl;
       }
       else{
         // // to prove that draw works, draw with these two lines
-        // vec3 tempColor(.02*i, .03*j, i+j);
-        PutPixelSDL(screen, i, j, triangles[3].color );
+        vec3 tempColor(0.75, 0.75, 0.75);
+        PutPixelSDL(screen, i, j, tempColor );
       }
 
-
     }
-  }
+  } //end of nested for loops where we draw each pixel
+
 }
 
 /*Place updates of parameters here*/
@@ -355,6 +264,8 @@ bool Update(vec4& cameraPos, float& yaw, vec4& lightPos){
                 cameraPos.z = ( cameraPos.z*cos(yaw) + cameraPos.z*sin(yaw) );
                 // lastWasRight = true; //probably doens't work 18 Feb
                 break;
+
+              //for moving the light
               case SDLK_a:
                 /* Move light left */
                 lightPos.x -= .25;
@@ -385,9 +296,6 @@ bool Update(vec4& cameraPos, float& yaw, vec4& lightPos){
               }
           }
     }
-    //printing to see if the camera moving with keys works...
-    // cout << "In update, (x: " << cameraPos.x << ", y: " << cameraPos.y << ", z: " << cameraPos.z << ")" << endl;
-    //end of moving camera testing
 
     return true;
   }
